@@ -52,21 +52,27 @@ def project_generated_images(network_pkl, seeds, num_snapshots, truncation_psi):
 
 #----------------------------------------------------------------------------
 
-def project_real_images(network_pkl, dataset_name, data_dir, num_images, num_snapshots):
+def project_real_images(network_pkl, dataset_name, data_dir, num_images, num_snapshots, num_steps):
     print('Loading networks from "%s"...' % network_pkl)
     _G, _D, Gs = pretrained_networks.load_networks(network_pkl)
     proj = projector.Projector()
+    proj.num_steps = num_steps
     proj.set_network(Gs)
 
     print('Loading images from "%s"...' % dataset_name)
     dataset_obj = dataset.load_dataset(data_dir=data_dir, tfrecord_dir=dataset_name, max_label_size=0, repeat=False, shuffle_mb=0)
     assert dataset_obj.shape == Gs.output_shape[1:]
 
-    for image_idx in range(num_images):
-        print('Projecting image %d/%d ...' % (image_idx, num_images))
+    for image_idx in range(2):
+        print('Projecting image %d/%d ...' % (image_idx+1, 2))
         images, _labels = dataset_obj.get_minibatch_np(1)
         images = misc.adjust_dynamic_range(images, [0, 255], [-1, 1])
         project_image(proj, targets=images, png_prefix=dnnlib.make_run_dir_path('image%04d-' % image_idx), num_snapshots=num_snapshots)
+        print('Saving latent and noise %d/%d ...' % (image_idx+1, 2))
+        save_list = [proj.get_dlatents()] + proj.get_noises()
+        np.savez('projection/%d.npz' % (image_idx+1), *save_list)
+        misc.save_image_grid(proj.get_images(), 'projection/%d.png' % (image_idx+1), drange=[-1,1])
+
 
 #----------------------------------------------------------------------------
 
@@ -119,6 +125,7 @@ Run 'python %(prog)s <subcommand> --help' for subcommand help.''',
     project_real_images_parser.add_argument('--num-snapshots', type=int, help='Number of snapshots (default: %(default)s)', default=5)
     project_real_images_parser.add_argument('--num-images', type=int, help='Number of images to project (default: %(default)s)', default=3)
     project_real_images_parser.add_argument('--result-dir', help='Root directory for run results (default: %(default)s)', default='results', metavar='DIR')
+    project_real_images_parser.add_argument('--num-steps', type=int, help='Number of optimization steps (default: %(default)s)', default=200)
 
     args = parser.parse_args()
     subcmd = args.command
