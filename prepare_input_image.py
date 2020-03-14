@@ -57,6 +57,16 @@ def process_source(in_path, out_path, output_size=1024):
     quad = np.stack([c - x - y, c - x + y, c + x + y, c + x - y])
     qsize = np.hypot(*x) * 2
 
+    # Check dimensions
+    quad_minside = min(
+        np.hypot(*(quad[0,:]-quad[1,:])),
+        np.hypot(*(quad[1,:]-quad[2,:])),
+        np.hypot(*(quad[2,:]-quad[3,:])),
+        np.hypot(*(quad[3,:]-quad[0,:]))
+    )
+    if quad_minside < output_size*0.5:
+        print('Warning: Image resolution is low (%.1f%% of ideal) which may lead to poor results. Consider using a higher-resolution image.' % (quad_minside / output_size * 100))
+
     # Load the image
     img = PIL.Image.open(in_path)
 
